@@ -121,3 +121,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+
+# Define o tipo padrão da chave primária automática criada pelo Django nos models.
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Faz o DRF manter campos Decimal como número na resposta, em vez de string.
+REST_FRAMEWORK = {
+    "COERCE_DECIMAL_TO_STRING": False,
+}

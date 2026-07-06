@@ -1,29 +1,33 @@
 # twjobs-api
 
-Terceiro commit da aplicacao: nesta etapa o projeto deixa de expor a API de `skills` manualmente e passa a utilizar Django Rest Framework.
+Quarto commit da aplicacao: nesta etapa a API deixa de expor apenas a listagem e criacao de `skills` e passa a oferecer operacoes de detalhe para habilidades, alem de publicar a primeira versao da API de `jobs` com Django Rest Framework.
 
-O foco agora e substituir o fluxo baseado em `json.loads`, dicionarios manuais e `JsonResponse` por componentes proprios do DRF, com serializer dedicado, `APIView` e respostas padronizadas com `Response`.
+O foco agora e ampliar a estrutura iniciada no commit anterior, reaproveitando `APIView`, `ModelSerializer` e `Response` para cobrir novos fluxos da aplicacao e expor o relacionamento entre vagas e habilidades.
 
 ## O que foi alterado neste commit
 
 As principais alteracoes desta etapa foram:
 
-- instalacao do Django Rest Framework no projeto
-- adicao de `rest_framework` em `INSTALLED_APPS`
-- criacao do `SkillSerializer` com `ModelSerializer`
-- refatoracao da view `SkillList` para herdar de `APIView`
-- substituicao da serializacao manual por `serializer.data`
-- uso de `request.data` no lugar do parse manual de JSON
-- validacao da entrada com `serializer.is_valid(raise_exception=True)`
-- remocao da necessidade de `csrf_exempt` na rota da API
+- criacao da view `SkillDetail` para consultar, atualizar e remover uma habilidade
+- adicao da rota detalhada `api/skills/<pk>`
+- uso de `get_object_or_404` para tratamento padronizado de registros inexistentes em `skills`
+- criacao da view `JobList` para listar e criar vagas
+- criacao do `JobSerializer` com `ModelSerializer`
+- exposicao da rota `api/jobs/`
+- serializacao do relacionamento many-to-many entre `jobs` e `skills`
+- exclusao do campo interno `is_active` da resposta da API de vagas
+- configuracao do DRF para manter campos `Decimal` como numero no JSON com `COERCE_DECIMAL_TO_STRING = False`
 
 Arquivos centrais desta entrega:
 
-- `skills/serializers.py`
 - `skills/views.py`
 - `skills/urls.py`
-- `setup/settings.py`
+- `jobs/views.py`
+- `jobs/serializers.py`
+- `jobs/urls.py`
+- `jobs/models.py`
 - `setup/urls.py`
+- `setup/settings.py`
 
 ## Stack usada ate o momento
 
@@ -90,11 +94,11 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-## Endpoints criados com Django Rest Framework
+## Endpoints disponiveis
 
-Embora exista apenas uma URL registrada, esta rota expoe dois endpoints logicos por metodo HTTP.
+O projeto agora possui dois grupos principais de endpoints: `skills` e `jobs`.
 
-Base URL:
+### Base de skills
 
 ```text
 /api/skills/
@@ -106,7 +110,7 @@ Lista todas as habilidades cadastradas.
 
 Implementacao atual:
 
-- busca todos os registros com `Skill.objects.all()`
+- busca os registros com `Skill.objects.all()`
 - serializa a collection com `SkillSerializer(skills, many=True)`
 - retorna os dados com `Response(serializer.data)`
 
@@ -145,6 +149,16 @@ Implementacao atual:
 - persiste o registro com `serializer.save()`
 - retorna a skill criada com status `201 Created`
 
+### 3. GET /api/skills/<id>
+
+Retorna uma habilidade especifica.
+
+Implementacao atual:
+
+- busca o registro com `get_object_or_404(Skill, pk=pk)`
+- serializa a instancia com `SkillSerializer(skill)`
+- retorna os dados com `Response(serializer.data)`
+
 Exemplo de resposta:
 
 ```json
@@ -154,15 +168,115 @@ Exemplo de resposta:
 }
 ```
 
-Exemplo de resposta quando a entrada e invalida:
+### 4. PUT /api/skills/<id>
+
+Atualiza uma habilidade existente.
+
+Corpo esperado:
 
 ```json
 {
-    "name": [
-        "This field may not be blank."
-    ]
+    "name": "Python e Django"
 }
 ```
+
+Implementacao atual:
+
+- busca a skill pelo `pk`
+- reaproveita `SkillSerializer(skill, data=request.data)`
+- valida os dados com `raise_exception=True`
+- salva e devolve o objeto atualizado
+
+### 5. DELETE /api/skills/<id>
+
+Remove uma habilidade existente.
+
+Implementacao atual:
+
+- busca a skill pelo `pk`
+- executa `delete()`
+- retorna status `204 No Content`
+
+### Base de jobs
+
+```text
+/api/jobs/
+```
+
+### 6. GET /api/jobs/
+
+Lista todas as vagas cadastradas.
+
+Implementacao atual:
+
+- busca os registros com `Job.objects.all()`
+- serializa a collection com `JobSerializer(jobs, many=True)`
+- retorna os dados com `Response(serializer.data)`
+
+Exemplo de resposta:
+
+```json
+[
+    {
+        "id": 1,
+        "title": "Desenvolvedor Django",
+        "description": "Atuar na evolucao da API",
+        "company": "TreinaWeb",
+        "location": "Remoto",
+        "job_type": "FULL_TIME",
+        "job_level": "JUNIOR",
+        "salary": 3500.0,
+        "skills": [1, 2]
+    }
+]
+```
+
+Observacao: o campo `salary` e retornado como numero porque o projeto definiu `COERCE_DECIMAL_TO_STRING = False` no DRF.
+
+### 7. POST /api/jobs/
+
+Cria uma nova vaga.
+
+Corpo esperado:
+
+```json
+{
+    "title": "Desenvolvedor Django",
+    "description": "Atuar na evolucao da API",
+    "company": "TreinaWeb",
+    "location": "Remoto",
+    "job_type": "FULL_TIME",
+    "job_level": "JUNIOR",
+    "salary": 3500.00,
+    "skills": [1, 2]
+}
+```
+
+Implementacao atual:
+
+- recebe os dados com `request.data`
+- cria o serializer com `JobSerializer(data=request.data, context={"request": request})`
+- valida a entrada com `serializer.is_valid(raise_exception=True)`
+- persiste a vaga com `serializer.save()`
+- retorna o recurso criado com status `201 Created`
+
+Exemplo de resposta:
+
+```json
+{
+    "id": 1,
+    "title": "Desenvolvedor Django",
+    "description": "Atuar na evolucao da API",
+    "company": "TreinaWeb",
+    "location": "Remoto",
+    "job_type": "FULL_TIME",
+    "job_level": "JUNIOR",
+    "salary": 3500.0,
+    "skills": [1, 2]
+}
+```
+
+Observacao: o campo `is_active` existe no model, mas nao aparece na API porque foi excluido do serializer.
 
 ## Exemplo de uso com curl
 
@@ -172,34 +286,59 @@ Listar skills:
 curl http://127.0.0.1:8000/api/skills/
 ```
 
-Criar skill:
+Buscar uma skill por id:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/skills/ \
-    -H "Content-Type: application/json" \
-    -d '{"name":"Python"}'
+curl http://127.0.0.1:8000/api/skills/1
 ```
 
-## O que melhora com o Django Rest Framework
+Atualizar uma skill:
 
-Nesta etapa a API continua simples, mas passa a usar uma base mais adequada para crescer. As principais vantagens sao:
+```bash
+curl -X PUT http://127.0.0.1:8000/api/skills/1 \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Python e Django"}'
+```
 
-- serializer dedicado para transformar e validar dados
-- reducao do codigo manual na view
-- tratamento padronizado de erros de validacao
-- leitura de entrada via `request.data`, sem parse manual do corpo
-- respostas HTTP mais consistentes com `Response`
-- suporte nativo a browsable API do DRF
-- base pronta para evoluir com autenticacao, permissoes, filtros e paginacao
+Remover uma skill:
 
-Na pratica, o DRF reduz repeticao, melhora a manutencao e deixa a API mais preparada para novas funcionalidades.
+```bash
+curl -X DELETE http://127.0.0.1:8000/api/skills/1
+```
+
+Listar jobs:
+
+```bash
+curl http://127.0.0.1:8000/api/jobs/
+```
+
+Criar job:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/jobs/ \
+    -H "Content-Type: application/json" \
+    -d '{"title":"Desenvolvedor Django","description":"Atuar na evolucao da API","company":"TreinaWeb","location":"Remoto","job_type":"FULL_TIME","job_level":"JUNIOR","salary":3500.00,"skills":[1,2]}'
+```
+
+## O que melhora com esta etapa
+
+Com este commit, a API passa a cobrir mais casos reais da aplicacao. As principais melhorias sao:
+
+- `skills` agora possui ciclo basico de leitura, atualizacao e remocao por identificador
+- `jobs` passa a ser exposto por HTTP usando a mesma base do DRF adotada no commit anterior
+- o relacionamento entre vagas e habilidades ja pode ser enviado e retornado pela API
+- a aplicacao reduz tratamento manual de erros ao usar `get_object_or_404` e validacao padronizada do serializer
+- a resposta da API fica mais alinhada ao dominio da aplicacao, com campos numericos e relacionamentos prontos para consumo
+
+Na pratica, o projeto deixa de ter uma API restrita a `skills` e passa a expor uma base inicial para o fluxo de vagas.
 
 ## Estado atual da aplicacao
 
-Neste terceiro commit:
+Neste quarto commit:
 
-- a API de `skills` continua respondendo em JSON
-- a implementacao agora usa Django Rest Framework
-- a listagem e a criacao passam por serializer e validacao do DRF
-- a rota `api/skills/` continua ativa, mas com uma base mais robusta
-- o app `jobs` ja possui model, mas ainda nao expoe endpoints HTTP
+- `skills` possui endpoints de lista, criacao, detalhe, atualizacao e remocao
+- `jobs` possui endpoints de lista e criacao
+- a API continua baseada em Django Rest Framework
+- o campo `salary` e serializado como numero no JSON
+- o relacionamento many-to-many entre `jobs` e `skills` ja esta disponivel na API
+- ainda nao existe endpoint de detalhe para `jobs`
