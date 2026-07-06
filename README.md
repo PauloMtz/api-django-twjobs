@@ -1,31 +1,35 @@
 # twjobs-api
 
-Segundo commit da aplicacao: neste ponto o projeto deixa de ser apenas a estrutura inicial em Django e passa a expor os primeiros endpoints HTTP da API sem usar Django Rest Framework.
+Terceiro commit da aplicacao: nesta etapa o projeto deixa de expor a API de `skills` manualmente e passa a utilizar Django Rest Framework.
 
-O foco desta etapa foi criar a base da API de `skills`, mantendo a implementacao manual com classes baseadas em `django.views.View`, serializacao simples e respostas em JSON.
+O foco agora e substituir o fluxo baseado em `json.loads`, dicionarios manuais e `JsonResponse` por componentes proprios do DRF, com serializer dedicado, `APIView` e respostas padronizadas com `Response`.
 
 ## O que foi alterado neste commit
 
 As principais alteracoes desta etapa foram:
 
-- criacao da model `Skill` com o campo `name`
-- criacao do metodo `to_json()` para transformar a model em dicionario
-- criacao da view `SkillList` sem DRF
-- criacao da rota `api/skills/`
-- implementacao dos endpoints de listagem e criacao de skills
-- uso de `csrf_exempt` para permitir requisicoes POST sem formulario HTML tradicional
+- instalacao do Django Rest Framework no projeto
+- adicao de `rest_framework` em `INSTALLED_APPS`
+- criacao do `SkillSerializer` com `ModelSerializer`
+- refatoracao da view `SkillList` para herdar de `APIView`
+- substituicao da serializacao manual por `serializer.data`
+- uso de `request.data` no lugar do parse manual de JSON
+- validacao da entrada com `serializer.is_valid(raise_exception=True)`
+- remocao da necessidade de `csrf_exempt` na rota da API
 
 Arquivos centrais desta entrega:
 
-- `skills/models.py`
+- `skills/serializers.py`
 - `skills/views.py`
 - `skills/urls.py`
+- `setup/settings.py`
 - `setup/urls.py`
 
 ## Stack usada ate o momento
 
 - Python 3.14 no ambiente atual
 - Django 6.0.6
+- djangorestframework
 - python-decouple 3.8
 - dj-database-url 3.1.2
 - mysqlclient 2.2.8
@@ -47,6 +51,7 @@ python -m venv .venv
 ```cmd
 python -m pip install --upgrade pip
 pip install Django
+pip install djangorestframework
 pip install python-decouple
 pip install dj-database-url
 pip install mysqlclient
@@ -85,7 +90,7 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-## Endpoints criados sem Django Rest Framework
+## Endpoints criados com Django Rest Framework
 
 Embora exista apenas uma URL registrada, esta rota expoe dois endpoints logicos por metodo HTTP.
 
@@ -102,17 +107,19 @@ Lista todas as habilidades cadastradas.
 Implementacao atual:
 
 - busca todos os registros com `Skill.objects.all()`
-- converte cada item com `to_json()`
-- retorna um array JSON
+- serializa a collection com `SkillSerializer(skills, many=True)`
+- retorna os dados com `Response(serializer.data)`
 
 Exemplo de resposta:
 
 ```json
 [
     {
+        "id": 1,
         "name": "Python"
     },
     {
+        "id": 2,
         "name": "Django"
     }
 ]
@@ -132,16 +139,28 @@ Corpo esperado:
 
 Implementacao atual:
 
-- faz o parse manual do corpo com `json.loads(request.body)`
-- le o campo `name`
-- cria o registro com `Skill.objects.create(...)`
-- retorna o JSON da skill criada com status `201 Created`
+- recebe os dados com `request.data`
+- cria o serializer com `SkillSerializer(data=request.data)`
+- valida a entrada com `serializer.is_valid(raise_exception=True)`
+- persiste o registro com `serializer.save()`
+- retorna a skill criada com status `201 Created`
 
 Exemplo de resposta:
 
 ```json
 {
+    "id": 1,
     "name": "Python"
+}
+```
+
+Exemplo de resposta quando a entrada e invalida:
+
+```json
+{
+    "name": [
+        "This field may not be blank."
+    ]
 }
 ```
 
@@ -161,26 +180,26 @@ curl -X POST http://127.0.0.1:8000/api/skills/ \
     -d '{"name":"Python"}'
 ```
 
-## Limitacoes de nao utilizar Django Rest Framework
+## O que melhora com o Django Rest Framework
 
-Nesta etapa a API foi criada manualmente para fins de aprendizado. Isso funciona para cenarios simples, mas traz limitacoes importantes:
+Nesta etapa a API continua simples, mas passa a usar uma base mais adequada para crescer. As principais vantagens sao:
 
-- nao existe serializer dedicado para validar e transformar dados
-- a validacao de entrada ainda e minima ou inexistente
-- erros de JSON invalido, campo ausente ou valor vazio nao estao tratados
-- a view precisa cuidar manualmente de parse, persistencia e resposta
-- nao ha recursos nativos de paginacao, filtros, autenticacao e permissoes
-- nao ha browsable API para inspecionar e testar endpoints pelo navegador
-- o tratamento de codigos HTTP e mensagens de erro precisa ser feito manualmente
-- a escalabilidade da manutencao piora conforme surgem mais endpoints
+- serializer dedicado para transformar e validar dados
+- reducao do codigo manual na view
+- tratamento padronizado de erros de validacao
+- leitura de entrada via `request.data`, sem parse manual do corpo
+- respostas HTTP mais consistentes com `Response`
+- suporte nativo a browsable API do DRF
+- base pronta para evoluir com autenticacao, permissoes, filtros e paginacao
 
-Na pratica, sem DRF a aplicacao exige mais codigo repetitivo e mais cuidado para manter padrao de resposta, validacao e seguranca.
+Na pratica, o DRF reduz repeticao, melhora a manutencao e deixa a API mais preparada para novas funcionalidades.
 
 ## Estado atual da aplicacao
 
-Neste segundo commit:
+Neste terceiro commit:
 
-- a API de `skills` ja responde em JSON
-- a criacao e a listagem estao funcionando sem DRF
+- a API de `skills` continua respondendo em JSON
+- a implementacao agora usa Django Rest Framework
+- a listagem e a criacao passam por serializer e validacao do DRF
+- a rota `api/skills/` continua ativa, mas com uma base mais robusta
 - o app `jobs` ja possui model, mas ainda nao expoe endpoints HTTP
-- a aplicacao ainda esta em uma fase inicial, com foco em estrutura e aprendizado do fluxo manual do Django

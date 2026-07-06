@@ -1,19 +1,22 @@
-import json
-from django.views import View  # sem utilização de Django Rest Framework (DRF)
-from django.http import HttpRequest, JsonResponse
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 from .models import Skill
+from .serializers import SkillSerializer
 
-# from django.shortcuts import render # para renderização de HTML
 
-
-# Create your views here --> with no DRF
-class SkillList(View):
+class SkillList(APIView):
     def get(self, request):
         skills = Skill.objects.all()
-        dados = [skill.to_json() for skill in skills]
-        return JsonResponse(dados, safe=False)
+        serializer = SkillSerializer(skills, many=True)
+        return Response(serializer.data)
 
-    def post(self, request: HttpRequest):
-        body = json.loads(request.body)
-        skill = Skill.objects.create(name=body.get("name"))
-        return JsonResponse(skill.to_json(), status=201)
+    def post(self, request):
+        serializer = SkillSerializer(data=request.data)
+        # if serializer.is_valid():
+        # serializer.save()
+        # return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
