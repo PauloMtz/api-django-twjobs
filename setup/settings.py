@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "jobs.apps.JobsConfig",
     "skills.apps.SkillsConfig",
     "rest_framework",
+    "core.apps.CoreConfig",
 ]
 
 MIDDLEWARE = [
@@ -125,7 +126,13 @@ STATIC_URL = "static/"
 # Define o tipo padrão da chave primária automática criada pelo Django nos models.
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Faz o DRF manter campos Decimal como número na resposta, em vez de string.
+# configurações do Django REST Framework
 REST_FRAMEWORK = {
     "COERCE_DECIMAL_TO_STRING": False,
+    # "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.TWJobsPagination",
+    "PAGE_SIZE": 10,
 }
+
+PAGE_SIZE_QUERY_PARAM = "size"
+MAX_PAGE_SIZE = 100

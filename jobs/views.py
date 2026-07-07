@@ -3,6 +3,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 
+# from rest_framework.pagination import PageNumberPagination
+
+from core.pagination import TWJobsPagination
 from .models import Job
 from .serializers import JobSerializer
 
@@ -10,9 +13,12 @@ from .serializers import JobSerializer
 # Create your views here.
 class JobList(APIView):
     def get(self, request):
-        jobs = Job.objects.filter(is_active=True)
+        # paginator = PageNumberPagination()
+        paginator = TWJobsPagination()
+        query_set = Job.objects.filter(is_active=True)
+        jobs = paginator.paginate_queryset(query_set, request)
         serializer = JobSerializer(jobs, many=True)
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = JobSerializer(data=request.data, context={"request": request})
