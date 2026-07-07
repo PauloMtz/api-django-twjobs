@@ -3,7 +3,7 @@ from django.db import models
 
 # Create your models here.
 class JobType(models.TextChoices):
-    FULL_TIME = "FULL_TIME", "Full Time"  # isso é uma tupla
+    FULL_TIME = "FULL_TIME", "Full Time"
     PART_TIME = "PART_TIME", "Part Time"
     FREELANCE = "FREELANCE", "Freelance"
     INTERSHIP = "INTERSHIP", "Intership"

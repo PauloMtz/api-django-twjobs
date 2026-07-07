@@ -10,8 +10,7 @@ from .serializers import JobSerializer
 # Create your views here.
 class JobList(APIView):
     def get(self, request):
-        # jobs = Job.objects.all()
-        jobs = Job.objects.filter(is_active=True)  # only return active jobs
+        jobs = Job.objects.filter(is_active=True)
         serializer = JobSerializer(jobs, many=True)
         return Response(serializer.data)
 
@@ -24,16 +23,14 @@ class JobList(APIView):
 
 class JobDetail(APIView):
     def __get_active_job(self, pk):
-        return get_object_or_404(Job, pk=pk, is_active=True)  # only return active jobs
+        return get_object_or_404(Job, pk=pk, is_active=True)
 
     def get(self, request, pk):
-        # job = get_object_or_404(Job, pk=pk, is_active=True)  # only return active jobs
         job = self.__get_active_job(pk)
         serializer = JobSerializer(job)
         return Response(serializer.data)
 
     def put(self, request, pk):
-        # job = get_object_or_404(Job, pk=pk, is_active=True)  # only update active jobs
         job = self.__get_active_job(pk)
         serializer = JobSerializer(job, data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -42,7 +39,6 @@ class JobDetail(APIView):
 
     def delete(self, request, pk):
         job = self.__get_active_job(pk)
-        # job = get_object_or_404(Job, pk=pk, is_active=True)  # only delete active jobs
-        job.is_active = False  # soft delete
+        job.is_active = False
         job.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
