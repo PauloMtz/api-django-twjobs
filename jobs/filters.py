@@ -3,9 +3,7 @@ from django_filters import rest_framework as filters
 from .models import Job
 
 
-class CharInFilter(filters.BaseInFilter, filters.CharFilter):
-    # sem implementação porque a classe pai já implementa o necessário
-    ...
+class CharInFilter(filters.BaseInFilter, filters.CharFilter): ...
 
 
 class JobFilterSet(filters.FilterSet):
