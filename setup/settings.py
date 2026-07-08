@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "skills.apps.SkillsConfig",
     "rest_framework",
     "core.apps.CoreConfig",
+    "django_filters",
 ]
 
 MIDDLEWARE = [

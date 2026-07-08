@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 from core.pagination import TWJobsPagination
 from .models import Job
 from .serializers import JobSerializer
+from .filters import JobFilterSet
 
 
 # Create your views here.
@@ -16,7 +17,17 @@ class JobList(APIView):
         # paginator = PageNumberPagination()
         paginator = TWJobsPagination()
         query_set = Job.objects.filter(is_active=True)
-        jobs = paginator.paginate_queryset(query_set, request)
+        # --- abaixo segue filtro sem o filterset ---
+        # query_set = Job.objects.filter(
+        #    is_active=True,
+        #    title__icontains=request.GET.get("title", ""),
+        #    location__icontains=request.GET.get("location", ""),
+        # )
+        # if request.GET.get("job_type") is not None:
+        #    query_set = query_set.filter(job_type=request.GET.get("job_type"))
+        # --- filtros com o filterset ---
+        filter = JobFilterSet(request.GET, queryset=query_set)
+        jobs = paginator.paginate_queryset(filter.qs, request)
         serializer = JobSerializer(jobs, many=True)
         return paginator.get_paginated_response(serializer.data)
 

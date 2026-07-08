@@ -1,38 +1,34 @@
 # twjobs-api
 
-Agora nesta etapa a API evolui o fluxo de `jobs` com operacoes de detalhe, inativacao logica, paginacao e regras de validacao mais proximas do dominio.
+Agora nesta etapa a API evolui a listagem de `jobs` com filtros mais flexiveis, permitindo consultas mais proximas de um fluxo real de busca de vagas.
 
-O foco agora deixa de ser apenas expor vagas e passa a controlar melhor como elas sao consultadas, atualizadas e removidas da API, mantendo o historico no banco e melhorando a experiencia de consumo da listagem.
+O projeto ja contava com detalhe, atualizacao, inativacao logica, paginacao e validacoes. Neste proximo commit, o foco passa a ser melhorar a experiencia de busca da listagem, com combinacao de filtros por texto, faixa salarial, senioridade, tipo de contratacao e habilidades.
 
 ## O que foi alterado neste commit
 
 As principais alteracoes desta etapa foram:
 
-- criacao da view `JobDetail` para consultar, atualizar e inativar vagas individualmente
-- adicao da rota detalhada `api/jobs/<pk>`
-- filtro das consultas de vagas para retornar apenas registros com `is_active=True`
-- substituicao da exclusao fisica por exclusao logica em `jobs`, marcando `is_active=False`
-- reaproveitamento de `get_object_or_404` para manter o tratamento padronizado de vagas inexistentes ou inativas
-- criacao da classe `TWJobsPagination` baseada em `PageNumberPagination`
-- configuracao de paginacao global no DRF com `core.pagination.TWJobsPagination`
-- liberacao de ajuste de tamanho da pagina com o parametro `size`
-- definicao de limite maximo de `100` itens por pagina
-- adicao de validacoes de negocio no `JobSerializer`
+- criacao do arquivo `jobs/filters.py` com o `JobFilterSet`
+- adicao de filtros para `title` e `location` com busca parcial usando `icontains`
+- adicao de filtros exatos para `job_type` e `job_level`
+- adicao de filtros de faixa salarial com `salary_gte` e `salary_lte`
+- adicao de filtro por habilidades via parametro `skills`, permitindo informar multiplos nomes separados por virgula
+- integracao do `JobFilterSet` dentro da view `JobList`
+- inclusao do app `django_filters` em `INSTALLED_APPS`
+- organizacao da listagem para combinar filtros com a regra que continua exibindo apenas vagas ativas
 
 Arquivos centrais desta entrega:
 
+- `jobs/filters.py`
 - `jobs/views.py`
-- `jobs/urls.py`
-- `jobs/serializers.py`
-- `core/pagination.py`
 - `setup/settings.py`
-- `setup/urls.py`
 
 ## Stack usada ate o momento
 
 - Python 3.14 no ambiente atual
 - Django 6.0.6
 - djangorestframework
+- django-filter
 - python-decouple 3.8
 - dj-database-url 3.1.2
 - mysqlclient 2.2.8
@@ -55,6 +51,7 @@ python -m venv .venv
 python -m pip install --upgrade pip
 pip install Django
 pip install djangorestframework
+pip install django-filter
 pip install python-decouple
 pip install dj-database-url
 pip install mysqlclient
@@ -162,13 +159,33 @@ Remove uma habilidade existente com exclusao fisica.
 
 ### 6. GET /api/jobs/
 
-Lista as vagas ativas com paginacao.
+Lista as vagas ativas com paginacao e filtros.
 
 Implementacao atual:
 
-- busca apenas registros com `Job.objects.filter(is_active=True)`
+- busca inicialmente apenas registros com `is_active=True`
+- aplica os filtros declarados em `JobFilterSet`
 - pagina o resultado com `TWJobsPagination`
 - devolve a resposta no formato padrao do DRF com `count`, `next`, `previous` e `results`
+
+Filtros disponiveis na listagem:
+
+- `title`: busca parcial no titulo
+- `location`: busca parcial na localizacao
+- `job_type`: filtro exato pelo tipo de vaga
+- `job_level`: filtro exato pelo nivel
+- `salary_gte`: salario minimo
+- `salary_lte`: salario maximo
+- `skills`: nomes de habilidades separados por virgula
+
+Exemplos de consulta:
+
+- `/api/jobs/?title=django`
+- `/api/jobs/?location=remoto`
+- `/api/jobs/?job_type=FULL_TIME&job_level=SENIOR`
+- `/api/jobs/?salary_gte=3000&salary_lte=7000`
+- `/api/jobs/?skills=Python,Django`
+- `/api/jobs/?title=python&location=brasil&salary_gte=4000`
 
 Exemplo de resposta:
 
@@ -210,6 +227,7 @@ Observacoes:
 - por padrao a pagina usa `PAGE_SIZE = 10`
 - o cliente pode enviar `?size=20` para alterar o tamanho da pagina
 - o tamanho maximo permitido por requisicao e `100`
+- os filtros podem ser combinados na mesma requisicao
 
 ### 7. POST /api/jobs/
 
@@ -359,6 +377,36 @@ Listar jobs com tamanho de pagina customizado:
 curl "http://127.0.0.1:8000/api/jobs/?size=5"
 ```
 
+Filtrar jobs por titulo:
+
+```bash
+curl "http://127.0.0.1:8000/api/jobs/?title=django"
+```
+
+Filtrar jobs por localizacao:
+
+```bash
+curl "http://127.0.0.1:8000/api/jobs/?location=remoto"
+```
+
+Filtrar jobs por tipo e nivel:
+
+```bash
+curl "http://127.0.0.1:8000/api/jobs/?job_type=FULL_TIME&job_level=SENIOR"
+```
+
+Filtrar jobs por faixa salarial:
+
+```bash
+curl "http://127.0.0.1:8000/api/jobs/?salary_gte=3000&salary_lte=7000"
+```
+
+Filtrar jobs por habilidades:
+
+```bash
+curl "http://127.0.0.1:8000/api/jobs/?skills=Python,Django"
+```
+
 Buscar uma job por id:
 
 ```bash
@@ -389,24 +437,25 @@ curl -X DELETE http://127.0.0.1:8000/api/jobs/1
 
 ## O que melhora com esta etapa
 
-Com este commit, a API de vagas passa a cobrir um fluxo bem mais completo. As principais melhorias sao:
+Com este commit, a API de vagas passa a oferecer uma busca mais util sem exigir novas rotas ou regras especificas para cada consulta. As principais melhorias sao:
 
-- `jobs` agora possui endpoints de lista, criacao, detalhe, atualizacao e inativacao
-- a exclusao logica preserva dados historicos sem manter a vaga visivel para consumo comum
-- a listagem paginada reduz carga de resposta e prepara a API para volumes maiores
-- o serializer passa a bloquear dados inconsistentes antes da persistencia
-- a API deixa mais claro o comportamento de registros ativos e inativos
+- a listagem de `jobs` fica mais flexivel para consumo por frontends, dashboards e clientes HTTP
+- filtros podem ser combinados na mesma chamada, reduzindo processamento manual do lado cliente
+- a busca por faixa salarial melhora consultas orientadas por expectativa de renda
+- a busca por habilidades aproxima a API de um fluxo mais real de recrutamento
+- a organizacao em `JobFilterSet` deixa a regra de filtragem mais clara e mais facil de evoluir
 
-Na pratica, o projeto passa a ter uma API de vagas mais segura para evoluir e mais proxima de um fluxo real de publicacao e manutencao de oportunidades.
+Na pratica, o projeto passa a ter uma API de vagas mais preparada para cenarios de pesquisa, navegacao e refinamento de resultados.
 
 ## Estado atual da aplicacao
 
-Neste quinto commit:
+Neste sexto commit:
 
 - `skills` possui endpoints de lista, criacao, detalhe, atualizacao e remocao
 - `jobs` possui endpoints de lista, criacao, detalhe, atualizacao e inativacao
 - apenas vagas ativas aparecem na listagem e no detalhe
 - a listagem de `jobs` e paginada
 - o tamanho da pagina pode ser configurado por query string com `size`
+- a listagem de `jobs` aceita filtros por titulo, localizacao, tipo, nivel, faixa salarial e habilidades
 - o `JobSerializer` aplica validacoes minimas para campos importantes do dominio
 - o campo `salary` continua sendo serializado como numero no JSON
